@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LiverCache — Design Spec & Project Overview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f0e8;
+    --ink: #1a1208;
+    --rust: #c4401a;
+    --amber: #e8883a;
+    --sage: #4a6741;
+    --cream: #faf7f0;
+    --muted: #8a7d6b;
+    --border: #d8cfc0;
+    --tag-bg: #e8e0d0;
+    --mono: 'DM Mono', monospace;
+    --serif: 'DM Serif Display', serif;
+    --sans: 'DM Sans', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.7;
+  }
+
+  /* ── TOP BANNER ── */
+  .dev-banner {
+    background: var(--ink);
+    color: var(--amber);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    letter-spacing: 0.05em;
+  }
+  .dev-banner span { color: #888; }
+  .dev-banner .status { color: #6dbf67; }
+
+  /* ── NAV ── */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(245, 240, 232, 0.92);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+  }
+  .nav-logo {
+    font-family: var(--serif);
+    font-size: 20px;
+    color: var(--ink);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .nav-logo .dot { color: var(--rust); }
+  .nav-links {
+    display: flex;
+    gap: 32px;
+    list-style: none;
+  }
+  .nav-links a {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    text-decoration: none;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--rust); }
+  .nav-badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: var(--rust);
+    color: white;
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.04em;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    min-height: 90vh;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-left {
+    padding: 80px 60px 80px 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    z-index: 2;
+  }
+  .hero-eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.15em;
+    color: var(--rust);
+    text-transform: uppercase;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .hero-eyebrow::before {
+    content: '';
+    display: block;
+    width: 32px;
+    height: 1px;
+    background: var(--rust);
+  }
+  .hero-title {
+    font-family: var(--serif);
+    font-size: clamp(52px, 6vw, 84px);
+    line-height: 1.0;
+    color: var(--ink);
+    margin-bottom: 12px;
+  }
+  .hero-title em {
+    font-style: italic;
+    color: var(--rust);
+  }
+  .hero-subtitle {
+    font-size: 18px;
+    color: var(--muted);
+    font-weight: 300;
+    margin-bottom: 40px;
+    max-width: 480px;
+    line-height: 1.6;
+  }
+  .hero-meta {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-bottom: 48px;
+  }
+  .meta-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .meta-chip .icon { font-size: 16px; }
+  .hero-actions { display: flex; gap: 16px; flex-wrap: wrap; }
+  .btn-primary {
+    background: var(--rust);
+    color: white;
+    border: none;
+    padding: 14px 32px;
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 2px;
+    text-decoration: none;
+    transition: background 0.2s, transform 0.1s;
+    letter-spacing: 0.02em;
+  }
+  .btn-primary:hover { background: #a33515; transform: translateY(-1px); }
+  .btn-outline {
+    background: transparent;
+    color: var(--ink);
+    border: 1.5px solid var(--border);
+    padding: 14px 32px;
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 2px;
+    text-decoration: none;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .btn-outline:hover { border-color: var(--ink); color: var(--rust); }
+
+  .hero-right {
+    background: var(--ink);
+    padding: 60px 60px 60px 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-right::before {
+    content: '';
+    position: absolute;
+    top: -80px; right: -80px;
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(196,64,26,0.3), transparent 70%);
+  }
+  .terminal-window {
+    background: #0f0e0c;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #333;
+    position: relative;
+    z-index: 1;
+  }
+  .terminal-bar {
+    background: #1a1812;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid #2a2822;
+  }
+  .t-dot { width: 12px; height: 12px; border-radius: 50%; }
+  .t-dot.red { background: #c4401a; }
+  .t-dot.yellow { background: #e8883a; }
+  .t-dot.green { background: #4a6741; }
+  .terminal-title { font-family: var(--mono); font-size: 11px; color: #555; margin-left: 8px; }
+  .terminal-body {
+    padding: 20px 24px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.8;
+    color: #b0a898;
+  }
+  .t-comment { color: #555; }
+  .t-key { color: var(--amber); }
+  .t-val { color: #9dbf8a; }
+  .t-str { color: #e8b88a; }
+  .t-num { color: #8ab8df; }
+  .t-cursor {
+    display: inline-block;
+    width: 8px; height: 14px;
+    background: var(--rust);
+    animation: blink 1.1s step-end infinite;
+    vertical-align: text-bottom;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+  .hero-tagline {
+    margin-top: 32px;
+    font-family: var(--serif);
+    font-size: 22px;
+    font-style: italic;
+    color: #b0a898;
+    line-height: 1.4;
+    position: relative;
+    z-index: 1;
+  }
+  .hero-tagline em { color: var(--amber); font-style: normal; }
+
+  /* ── SECTION COMMON ── */
+  section { padding: 80px 80px; }
+  .section-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--rust);
+    margin-bottom: 16px;
+  }
+  .section-title {
+    font-family: var(--serif);
+    font-size: clamp(32px, 4vw, 48px);
+    line-height: 1.1;
+    margin-bottom: 16px;
+  }
+  .section-desc {
+    font-size: 16px;
+    color: var(--muted);
+    max-width: 560px;
+    line-height: 1.7;
+    margin-bottom: 56px;
+  }
+  hr.divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0 80px;
+  }
+
+  /* ── WHY IT MATTERS ── */
+  .why-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+  }
+  .why-card {
+    background: var(--cream);
+    padding: 40px 32px;
+    transition: background 0.2s;
+  }
+  .why-card:hover { background: white; }
+  .why-icon {
+    font-size: 28px;
+    margin-bottom: 16px;
+  }
+  .why-card h3 {
+    font-family: var(--serif);
+    font-size: 20px;
+    margin-bottom: 10px;
+    line-height: 1.2;
+  }
+  .why-card p { font-size: 14px; color: var(--muted); line-height: 1.6; }
+
+  /* ── PAGES SPEC ── */
+  .pages-section { background: var(--cream); }
+  .pages-nav {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 48px;
+    flex-wrap: wrap;
+  }
+  .page-tab {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 20px;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    cursor: pointer;
+    border-radius: 2px;
+    color: var(--muted);
+    transition: all 0.2s;
+    letter-spacing: 0.04em;
+  }
+  .page-tab.active, .page-tab:hover {
+    background: var(--ink);
+    color: var(--amber);
+    border-color: var(--ink);
+  }
+  .page-spec {
+    display: none;
+    grid-template-columns: 1fr 1.3fr;
+    gap: 56px;
+    align-items: start;
+  }
+  .page-spec.active { display: grid; }
+  .spec-info h3 {
+    font-family: var(--serif);
+    font-size: 30px;
+    margin-bottom: 16px;
+  }
+  .spec-info p { font-size: 15px; color: var(--muted); margin-bottom: 24px; line-height: 1.7; }
+  .spec-components h4 {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--rust);
+    margin-bottom: 16px;
+  }
+  .component-list { list-style: none; }
+  .component-list li {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .component-list li:last-child { border-bottom: none; }
+  .comp-name { font-weight: 600; color: var(--ink); min-width: 140px; }
+  .comp-desc { color: var(--muted); line-height: 1.5; }
+  .wireframe-preview {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .wireframe-preview::before {
+    content: 'WIREFRAME PREVIEW';
+    position: absolute;
+    top: 12px; right: 16px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--border);
+    letter-spacing: 0.1em;
+  }
+
+  /* Wireframe mock elements */
+  .wf-nav { background: var(--ink); height: 44px; border-radius: 3px; margin-bottom: 16px; display: flex; align-items: center; padding: 0 16px; gap: 8px; }
+  .wf-nav-logo { width: 80px; height: 16px; background: var(--rust); border-radius: 2px; }
+  .wf-nav-links { display: flex; gap: 8px; margin-left: auto; }
+  .wf-nav-link { width: 40px; height: 10px; background: #444; border-radius: 2px; }
+  .wf-nav-btn { width: 56px; height: 24px; background: var(--rust); border-radius: 2px; }
+  .wf-hero-block { background: linear-gradient(135deg, #f0ebe0 0%, #e8e0d0 100%); padding: 24px 20px; border-radius: 3px; margin-bottom: 16px; }
+  .wf-h1 { width: 75%; height: 20px; background: var(--ink); border-radius: 2px; margin-bottom: 8px; }
+  .wf-h1-sm { width: 55%; height: 20px; background: var(--ink); border-radius: 2px; margin-bottom: 8px; }
+  .wf-p { width: 90%; height: 8px; background: var(--border); border-radius: 2px; margin-bottom: 6px; }
+  .wf-p.short { width: 60%; }
+  .wf-btn-row { display: flex; gap: 8px; margin-top: 16px; }
+  .wf-btn { height: 32px; border-radius: 2px; }
+  .wf-btn.primary { width: 120px; background: var(--rust); }
+  .wf-btn.secondary { width: 100px; background: transparent; border: 1.5px solid var(--border); }
+  .wf-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+  .wf-card { background: white; border: 1px solid var(--border); border-radius: 3px; padding: 12px; }
+  .wf-card-line { height: 8px; background: var(--tag-bg); border-radius: 2px; margin-bottom: 6px; }
+  .wf-card-line.accent { background: var(--rust); opacity: 0.3; width: 40%; }
+  .wf-section-label { height: 8px; width: 100px; background: var(--rust); border-radius: 2px; opacity: 0.5; margin-bottom: 12px; }
+  .wf-search { height: 36px; background: white; border: 1.5px solid var(--border); border-radius: 3px; margin-bottom: 12px; display: flex; align-items: center; padding: 0 12px; gap: 8px; }
+  .wf-search-icon { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border); }
+  .wf-search-text { flex: 1; height: 8px; background: var(--tag-bg); border-radius: 2px; }
+  .wf-filters { display: flex; gap: 8px; margin-bottom: 12px; }
+  .wf-filter { height: 28px; flex: 1; background: var(--tag-bg); border-radius: 2px; border: 1px solid var(--border); }
+  .wf-result { background: white; border: 1px solid var(--border); border-radius: 3px; padding: 12px; margin-bottom: 8px; display: flex; gap: 12px; }
+  .wf-result-body { flex: 1; }
+  .wf-result-tag { width: 60px; height: 20px; background: var(--tag-bg); border-radius: 20px; flex-shrink: 0; }
+  .wf-form { background: white; border: 1px solid var(--border); border-radius: 3px; padding: 16px; }
+  .wf-form-field { margin-bottom: 10px; }
+  .wf-field-label { height: 7px; width: 80px; background: var(--muted); opacity: 0.4; border-radius: 2px; margin-bottom: 5px; }
+  .wf-field-input { height: 30px; background: var(--bg); border: 1px solid var(--border); border-radius: 2px; }
+  .wf-field-textarea { height: 60px; background: var(--bg); border: 1px solid var(--border); border-radius: 2px; }
+  .wf-footer { background: var(--ink); height: 40px; border-radius: 3px; margin-top: 16px; }
+
+  /* ── TECH STACK ── */
+  .stack-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+  .stack-card {
+    border: 1px solid var(--border);
+    padding: 32px;
+    border-radius: 4px;
+    background: var(--cream);
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .stack-card:hover { border-color: var(--rust); transform: translateY(-2px); }
+  .stack-icon { font-size: 32px; margin-bottom: 16px; }
+  .stack-card h3 { font-family: var(--serif); font-size: 22px; margin-bottom: 8px; }
+  .stack-card p { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 12px; }
+  .stack-tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11px;
+    background: var(--tag-bg);
+    padding: 3px 10px;
+    border-radius: 20px;
+    color: var(--muted);
+    margin: 2px;
+    letter-spacing: 0.03em;
+  }
+  .stack-tag.highlight { background: rgba(196,64,26,0.1); color: var(--rust); }
+
+  /* ── DESIGN SYSTEM ── */
+  .design-section { background: var(--ink); color: var(--cream); }
+  .design-section .section-label { color: var(--amber); }
+  .design-section .section-title { color: white; }
+  .design-section .section-desc { color: #8a7d6b; }
+  .design-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; }
+  .design-card {
+    border: 1px solid #333;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .design-card-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid #333;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: #666;
+    text-transform: uppercase;
+  }
+  .design-card-body { padding: 24px; }
+  .color-swatches { display: flex; gap: 12px; flex-wrap: wrap; }
+  .swatch { text-align: center; }
+  .swatch-block { width: 60px; height: 60px; border-radius: 4px; margin-bottom: 6px; }
+  .swatch-name { font-family: var(--mono); font-size: 10px; color: #666; }
+  .swatch-hex { font-family: var(--mono); font-size: 10px; color: #888; }
+  .type-sample { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #222; }
+  .type-sample:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .type-label { font-family: var(--mono); font-size: 10px; color: #555; margin-bottom: 4px; letter-spacing: 0.1em; text-transform: uppercase; }
+
+  /* ── ROADMAP ── */
+  .roadmap-section { background: var(--cream); }
+  .roadmap-timeline { position: relative; padding-left: 40px; }
+  .roadmap-timeline::before {
+    content: '';
+    position: absolute;
+    left: 12px; top: 8px; bottom: 8px;
+    width: 1px;
+    background: var(--border);
+  }
+  .roadmap-item { position: relative; margin-bottom: 40px; }
+  .roadmap-item::before {
+    content: '';
+    position: absolute;
+    left: -34px; top: 6px;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--cream);
+    border: 2px solid var(--border);
+  }
+  .roadmap-item.active::before { background: var(--rust); border-color: var(--rust); }
+  .roadmap-phase {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--rust);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .roadmap-item h3 { font-family: var(--serif); font-size: 22px; margin-bottom: 8px; }
+  .roadmap-item p { font-size: 14px; color: var(--muted); line-height: 1.6; max-width: 580px; }
+  .roadmap-tags { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .r-tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 12px;
+    border-radius: 20px;
+    background: var(--tag-bg);
+    color: var(--muted);
+  }
+
+  /* ── TEAM ── */
+  .team-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+  .team-card {
+    border: 1px solid var(--border);
+    padding: 40px;
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+  }
+  .team-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 4px; height: 100%;
+    background: var(--rust);
+  }
+  .team-initials {
+    width: 52px; height: 52px;
+    background: var(--ink);
+    color: var(--amber);
+    font-family: var(--serif);
+    font-size: 20px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 20px;
+  }
+  .team-card h3 { font-family: var(--serif); font-size: 24px; margin-bottom: 4px; }
+  .team-card .role { font-family: var(--mono); font-size: 12px; color: var(--rust); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 16px; }
+  .team-card p { font-size: 14px; color: var(--muted); line-height: 1.6; }
+
+  /* ── FOOTER ── */
+  footer {
+    background: var(--ink);
+    color: #666;
+    padding: 40px 80px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    font-family: var(--mono);
+  }
+  footer .footer-logo { color: var(--amber); font-size: 16px; font-family: var(--serif); }
+  footer a { color: #666; text-decoration: none; transition: color 0.2s; }
+  footer a:hover { color: var(--amber); }
+  footer .footer-links { display: flex; gap: 24px; }
+
+  /* ── PRINCIPLES BADGE ── */
+  .principles-row { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 0; }
+  .principle-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: white;
+    border: 1px solid var(--border);
+    padding: 14px 20px;
+    border-radius: 4px;
+    flex: 1;
+    min-width: 180px;
+  }
+  .principle-badge .pb-icon { font-size: 20px; }
+  .principle-badge .pb-text { font-size: 13px; font-weight: 600; color: var(--ink); }
+  .principle-badge .pb-sub { font-size: 11px; color: var(--muted); }
+
+  /* Subtle grain overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    z-index: 9999;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    opacity: 0.35;
+  }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .hero { grid-template-columns: 1fr; }
+    .hero-right { display: none; }
+    section { padding: 60px 32px; }
+    hr.divider { margin: 0 32px; }
+    nav { padding: 0 24px; }
+    .why-grid { grid-template-columns: 1fr 1fr; }
+    .stack-grid { grid-template-columns: 1fr; }
+    .design-grid { grid-template-columns: 1fr; }
+    .team-grid { grid-template-columns: 1fr; }
+    footer { flex-direction: column; gap: 16px; text-align: center; padding: 32px; }
+    .page-spec { grid-template-columns: 1fr; }
+    .page-spec .wireframe-preview { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Dev Banner -->
+<div class="dev-banner">
+  <span>LiverCache · Design Specification v0.1 · For: Scottie Enriquez</span>
+  <span class="status">● DRAFT — Feb 2026</span>
+</div>
+
+<!-- Nav -->
+<nav>
+  <a href="#" class="nav-logo">LiverCache<span class="dot">.</span></a>
+  <ul class="nav-links">
+    <li><a href="#why">Why</a></li>
+    <li><a href="#pages">Pages</a></li>
+    <li><a href="#stack">Stack</a></li>
+    <li><a href="#design">Design</a></li>
+    <li><a href="#roadmap">Roadmap</a></li>
+    <li><a href="#team">Team</a></li>
+  </ul>
+  <span class="nav-badge">Design Brief</span>
+</nav>
+
+<!-- Hero -->
+<section class="hero" style="padding:0;">
+  <div class="hero-left">
+    <div class="hero-eyebrow">Project Specification · Hepatology Research</div>
+    <h1 class="hero-title">Liver<em>Cache</em></h1>
+    <p class="hero-subtitle">An open, community-driven archive for unpublished, negative, and shelved hepatology research — making dark data visible, citable, and reusable.</p>
+    <div class="hero-meta">
+      <div class="meta-chip"><span class="icon">🔬</span> Hepatology Research</div>
+      <div class="meta-chip"><span class="icon">🔓</span> Open Access · CC BY 4.0</div>
+      <div class="meta-chip"><span class="icon">📌</span> DOI-Citable Entries</div>
+    </div>
+    <div class="principles-row" style="margin-bottom:40px;">
+      <div class="principle-badge">
+        <span class="pb-icon">🧊</span>
+        <div>
+          <div class="pb-text">Cache Dark Data</div>
+          <div class="pb-sub">Surface what's been shelved</div>
+        </div>
+      </div>
+      <div class="principle-badge">
+        <span class="pb-icon">🤝</span>
+        <div>
+          <div class="pb-text">Community-Led</div>
+          <div class="pb-sub">Built by hepatologists</div>
+        </div>
+      </div>
+      <div class="principle-badge">
+        <span class="pb-icon">🆓</span>
+        <div>
+          <div class="pb-text">Zero-Cost Stack</div>
+          <div class="pb-sub">GitHub + open tools</div>
+        </div>
+      </div>
+    </div>
+    <div class="hero-actions">
+      <a href="#pages" class="btn-primary">View Page Specs →</a>
+      <a href="#stack" class="btn-outline">Tech Stack</a>
+    </div>
+  </div>
+  <div class="hero-right">
+    <div class="terminal-window">
+      <div class="terminal-bar">
+        <div class="t-dot red"></div>
+        <div class="t-dot yellow"></div>
+        <div class="t-dot green"></div>
+        <span class="terminal-title">livercache — project.json</span>
+      </div>
+      <div class="terminal-body">
+        <span class="t-comment">// LiverCache · Project Metadata</span><br><br>
+        {<br>
+        &nbsp;&nbsp;<span class="t-key">"name"</span>: <span class="t-str">"LiverCache"</span>,<br>
+        &nbsp;&nbsp;<span class="t-key">"tagline"</span>: <span class="t-str">"Where shelved science lives"</span>,<br>
+        &nbsp;&nbsp;<span class="t-key">"domain"</span>: <span class="t-str">"hepatology"</span>,<br>
+        &nbsp;&nbsp;<span class="t-key">"access"</span>: <span class="t-str">"open · CC BY 4.0"</span>,<br>
+        &nbsp;&nbsp;<span class="t-key">"stack"</span>: [<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="t-str">"GitHub Pages"</span>,<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="t-str">"Google Forms"</span>,<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="t-str">"Zenodo / OSF"</span><br>
+        &nbsp;&nbsp;],<br>
+        &nbsp;&nbsp;<span class="t-key">"pages"</span>: [<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="t-str">"Homepage"</span>, <span class="t-str">"Browse"</span>, <span class="t-str">"Submit"</span><br>
+        &nbsp;&nbsp;],<br>
+        &nbsp;&nbsp;<span class="t-key">"founders"</span>: [<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="t-str">"Somaya Albhaisi"</span>,<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="t-str">"Scottie Enriquez"</span><br>
+        &nbsp;&nbsp;],<br>
+        &nbsp;&nbsp;<span class="t-key">"status"</span>: <span class="t-str">"pre-launch"</span>,<br>
+        &nbsp;&nbsp;<span class="t-key">"version"</span>: <span class="t-num">0.1</span><br>
+        }<br><br>
+        <span class="t-comment">$ git status</span><br>
+        <span class="t-val">On branch main — ready to build</span><span class="t-cursor"></span>
+      </div>
+    </div>
+    <p class="hero-tagline">Where shelved liver science<br><em>finally gets cached.</em></p>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- Why It Matters -->
+<section id="why">
+  <div class="section-label">01 · Rationale</div>
+  <h2 class="section-title">Why LiverCache Matters</h2>
+  <p class="section-desc">Publication bias leaves a graveyard of valuable hepatology findings invisible to the field. LiverCache changes that.</p>
+  <div class="why-grid">
+    <div class="why-card">
+      <div class="why-icon">📊</div>
+      <h3>Fights Publication Bias</h3>
+      <p>Null, negative, and inconclusive results rarely get published — yet they're vital for preventing duplicated effort and wasted grant funding.</p>
+    </div>
+    <div class="why-card">
+      <div class="why-icon">♻️</div>
+      <h3>Reduces Research Waste</h3>
+      <p>By making shelved work discoverable, LiverCache prevents other researchers from re-running the same failed experiments unknowingly.</p>
+    </div>
+    <div class="why-card">
+      <div class="why-icon">🔍</div>
+      <h3>Encourages Transparency</h3>
+      <p>Open science demands honesty about what didn't work. LiverCache normalizes sharing the full picture of a research journey.</p>
+    </div>
+    <div class="why-card">
+      <div class="why-icon">🏅</div>
+      <h3>Provides Academic Credit</h3>
+      <p>Every cached entry receives a DOI — giving contributors a citable, permanent record of their shelved work that counts toward their academic profile.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- Pages Spec -->
+<section id="pages" class="pages-section">
+  <div class="section-label">02 · Page Specifications</div>
+  <h2 class="section-title">Website Structure</h2>
+  <p class="section-desc">Three core pages. Each spec includes purpose, UI components, and a wireframe preview. Click a tab to explore each page.</p>
+
+  <div class="pages-nav">
+    <button class="page-tab active" onclick="showPage('home', this)">01 · Homepage</button>
+    <button class="page-tab" onclick="showPage('browse', this)">02 · Browse</button>
+    <button class="page-tab" onclick="showPage('submit', this)">03 · Submit</button>
+  </div>
+
+  <!-- Homepage Spec -->
+  <div class="page-spec active" id="spec-home">
+    <div class="spec-info">
+      <h3>Homepage</h3>
+      <p>The front door of LiverCache. It should immediately communicate the project's mission, invite exploration, and provide a clear path to contribute. Tone: confident, scientific, welcoming.</p>
+      <ul class="component-list">
+        <li>
+          <span class="comp-name">Navigation Bar</span>
+          <span class="comp-desc">Logo left; links to Home, Browse, Submit, About, Contact. "Submit" styled as a prominent CTA button. Sticky on scroll.</span>
+        </li>
+        <li>
+          <span class="comp-name">Hero Section</span>
+          <span class="comp-desc">Large headline + tagline. Primary CTA: "Explore Research" → Browse page. Subtle background texture or gradient.</span>
+        </li>
+        <li>
+          <span class="comp-name">About the Project</span>
+          <span class="comp-desc">Short paragraph explaining LiverCache's mission as an open-access, community-driven hepatology archive.</span>
+        </li>
+        <li>
+          <span class="comp-name">Recent Submissions</span>
+          <span class="comp-desc">4 cards showing newest entries. Each card: title, contributor name, content-type tag. Cards link to full submission page.</span>
+        </li>
+        <li>
+          <span class="comp-name">How to Contribute</span>
+          <span class="comp-desc">Short paragraph + secondary CTA button: "Submit Your Work" → Submit page.</span>
+        </li>
+        <li>
+          <span class="comp-name">Footer</span>
+          <span class="comp-desc">Logo, copyright, social links, nav links. Reused on all pages.</span>
+        </li>
+      </ul>
+    </div>
+    <div class="wireframe-preview">
+      <div class="wf-nav">
+        <div class="wf-nav-logo"></div>
+        <div class="wf-nav-links">
+          <div class="wf-nav-link"></div>
+          <div class="wf-nav-link"></div>
+          <div class="wf-nav-link"></div>
+          <div class="wf-nav-btn"></div>
+        </div>
+      </div>
+      <div class="wf-hero-block">
+        <div class="wf-h1"></div>
+        <div class="wf-h1-sm"></div>
+        <div class="wf-p"></div>
+        <div class="wf-p short"></div>
+        <div class="wf-btn-row">
+          <div class="wf-btn primary"></div>
+          <div class="wf-btn secondary"></div>
+        </div>
+      </div>
+      <div class="wf-section-label"></div>
+      <div class="wf-p"></div>
+      <div class="wf-p short"></div>
+      <div style="margin: 16px 0 8px; height: 7px; width: 120px; background: var(--border); border-radius: 2px;"></div>
+      <div class="wf-cards">
+        <div class="wf-card">
+          <div class="wf-card-line"></div>
+          <div class="wf-card-line" style="width:70%"></div>
+          <div class="wf-card-line accent"></div>
+        </div>
+        <div class="wf-card">
+          <div class="wf-card-line"></div>
+          <div class="wf-card-line" style="width:70%"></div>
+          <div class="wf-card-line accent"></div>
+        </div>
+        <div class="wf-card">
+          <div class="wf-card-line"></div>
+          <div class="wf-card-line" style="width:70%"></div>
+          <div class="wf-card-line accent"></div>
+        </div>
+      </div>
+      <div class="wf-p" style="margin-top:12px;"></div>
+      <div class="wf-p short"></div>
+      <div style="margin-top:12px;"><div class="wf-btn primary" style="width:140px;"></div></div>
+      <div class="wf-footer"></div>
+    </div>
+  </div>
+
+  <!-- Browse Spec -->
+  <div class="page-spec" id="spec-browse">
+    <div class="spec-info">
+      <h3>Browse Page</h3>
+      <p>The core discovery interface. Researchers come here to search and filter the LiverCache archive. Must be fast, scannable, and require minimal cognitive load.</p>
+      <ul class="component-list">
+        <li>
+          <span class="comp-name">Header / Nav</span>
+          <span class="comp-desc">Same sticky navigation as homepage.</span>
+        </li>
+        <li>
+          <span class="comp-name">Search Bar</span>
+          <span class="comp-desc">Full-width search; allows keyword, title, or author queries. Prominent placement at top of content area.</span>
+        </li>
+        <li>
+          <span class="comp-name">Filter: Content Type</span>
+          <span class="comp-desc">Checkboxes: Article, Dataset, Protocol, Poster. Allow multi-select.</span>
+        </li>
+        <li>
+          <span class="comp-name">Filter: Discipline</span>
+          <span class="comp-desc">Dropdown: NAFLD/NASH, Hepatitis, Cirrhosis, Cholestatic Disease, Other.</span>
+        </li>
+        <li>
+          <span class="comp-name">Filter: Date</span>
+          <span class="comp-desc">Dropdown: Last 30 Days, Last 6 Months, Last Year, All Time.</span>
+        </li>
+        <li>
+          <span class="comp-name">Results List</span>
+          <span class="comp-desc">Each result: title (links to full page), contributor name, submission date, content-type tag, discipline tag. Clean list layout — no images.</span>
+        </li>
+        <li>
+          <span class="comp-name">Footer</span>
+          <span class="comp-desc">Same as homepage.</span>
+        </li>
+      </ul>
+    </div>
+    <div class="wireframe-preview">
+      <div class="wf-nav">
+        <div class="wf-nav-logo"></div>
+        <div class="wf-nav-links">
+          <div class="wf-nav-link"></div>
+          <div class="wf-nav-link"></div>
+          <div class="wf-nav-link"></div>
+          <div class="wf-nav-btn"></div>
+        </div>
+      </div>
+      <div class="wf-search">
+        <div class="wf-search-icon"></div>
+        <div class="wf-search-text"></div>
+      </div>
+      <div class="wf-filters">
+        <div class="wf-filter"></div>
+        <div class="wf-filter"></div>
+        <div class="wf-filter"></div>
+      </div>
+      <div style="height: 7px; width: 100px; background: var(--border); border-radius:2px; margin-bottom: 12px;"></div>
+      <div class="wf-result">
+        <div class="wf-result-body">
+          <div class="wf-p" style="background: var(--ink); opacity:0.7; width:80%"></div>
+          <div class="wf-p" style="margin-top:4px;"></div>
+          <div style="display:flex; gap:6px; margin-top:8px;">
+            <div class="wf-result-tag"></div>
+            <div class="wf-result-tag" style="width:80px;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="wf-result">
+        <div class="wf-result-body">
+          <div class="wf-p" style="background: var(--ink); opacity:0.7; width:65%"></div>
+          <div class="wf-p" style="margin-top:4px;"></div>
+          <div style="display:flex; gap:6px; margin-top:8px;">
+            <div class="wf-result-tag"></div>
+            <div class="wf-result-tag" style="width:70px;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="wf-result">
+        <div class="wf-result-body">
+          <div class="wf-p" style="background: var(--ink); opacity:0.7; width:75%"></div>
+          <div class="wf-p" style="margin-top:4px;"></div>
+          <div style="display:flex; gap:6px; margin-top:8px;">
+            <div class="wf-result-tag"></div>
+            <div class="wf-result-tag" style="width:90px;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="wf-footer"></div>
+    </div>
+  </div>
+
+  <!-- Submit Spec -->
+  <div class="page-spec" id="spec-submit">
+    <div class="spec-info">
+      <h3>Submit Page</h3>
+      <p>The contribution gateway. Researchers submit their shelved work here. The form should feel frictionless and trustworthy. A clear confirmation message appears after submit.</p>
+      <ul class="component-list">
+        <li>
+          <span class="comp-name">Header / Nav</span>
+          <span class="comp-desc">Same sticky navigation as homepage.</span>
+        </li>
+        <li>
+          <span class="comp-name">Intro Text</span>
+          <span class="comp-desc">"Submit Your Research" heading + short paragraph explaining the submission process and its value.</span>
+        </li>
+        <li>
+          <span class="comp-name">Title</span>
+          <span class="comp-desc">Text field. Required.</span>
+        </li>
+        <li>
+          <span class="comp-name">Contributor Name(s)</span>
+          <span class="comp-desc">Text field. Supports multiple names. Required.</span>
+        </li>
+        <li>
+          <span class="comp-name">Content Type</span>
+          <span class="comp-desc">Dropdown: Article, Dataset, Protocol, Poster, Other.</span>
+        </li>
+        <li>
+          <span class="comp-name">Discipline</span>
+          <span class="comp-desc">Dropdown: NAFLD/NASH, Hepatitis, Cirrhosis, Cholestatic Disease, Other.</span>
+        </li>
+        <li>
+          <span class="comp-name">Abstract / Summary</span>
+          <span class="comp-desc">Large text area. Required.</span>
+        </li>
+        <li>
+          <span class="comp-name">Main Content</span>
+          <span class="comp-desc">File upload button (PDF accepted) OR external link field. At least one required.</span>
+        </li>
+        <li>
+          <span class="comp-name">Related Links</span>
+          <span class="comp-desc">Text field + "Add another link" button. Optional.</span>
+        </li>
+        <li>
+          <span class="comp-name">Contact Email</span>
+          <span class="comp-desc">Text field. Required. Private — not displayed publicly.</span>
+        </li>
+        <li>
+          <span class="comp-name">Submit Button</span>
+          <span class="comp-desc">Primary CTA. On click: validate fields → show inline confirmation message. Implement via Google Forms embed or custom form handler.</span>
+        </li>
+        <li>
+          <span class="comp-name">Footer</span>
+          <span class="comp-desc">Same as homepage.</span>
+        </li>
+      </ul>
+    </div>
+    <div class="wireframe-preview">
+      <div class="wf-nav">
+        <div class="wf-nav-logo"></div>
+        <div class="wf-nav-links">
+          <div class="wf-nav-link"></div>
+          <div class="wf-nav-link"></div>
+          <div class="wf-nav-link"></div>
+          <div class="wf-nav-btn"></div>
+        </div>
+      </div>
+      <div class="wf-section-label"></div>
+      <div class="wf-p" style="margin-bottom:4px;"></div>
+      <div class="wf-p short" style="margin-bottom:16px;"></div>
+      <div class="wf-form">
+        <div class="wf-form-field"><div class="wf-field-label"></div><div class="wf-field-input"></div></div>
+        <div class="wf-form-field"><div class="wf-field-label"></div><div class="wf-field-input"></div></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div class="wf-form-field"><div class="wf-field-label"></div><div class="wf-field-input"></div></div>
+          <div class="wf-form-field"><div class="wf-field-label"></div><div class="wf-field-input"></div></div>
+        </div>
+        <div class="wf-form-field"><div class="wf-field-label"></div><div class="wf-field-textarea"></div></div>
+        <div class="wf-form-field"><div class="wf-field-label"></div><div class="wf-field-input"></div></div>
+        <div class="wf-form-field"><div class="wf-field-label"></div><div class="wf-field-input"></div></div>
+        <div style="margin-top:8px;"><div class="wf-btn primary" style="width:100px;"></div></div>
+      </div>
+      <div class="wf-footer"></div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- Tech Stack -->
+<section id="stack">
+  <div class="section-label">03 · Technical Architecture</div>
+  <h2 class="section-title">Proposed Stack</h2>
+  <p class="section-desc">Built entirely on free, open-source tools. Zero infrastructure cost at launch. Designed to scale with the community.</p>
+  <div class="stack-grid">
+    <div class="stack-card">
+      <div class="stack-icon">🐙</div>
+      <h3>GitHub Organization</h3>
+      <p>Core repository for version control, issue tracking, and governance documents. All content is version-controlled and forkable by the community.</p>
+      <span class="stack-tag highlight">github.com/livercache</span>
+      <span class="stack-tag">CONTRIBUTING.md</span>
+      <span class="stack-tag">GOVERNANCE.md</span>
+      <span class="stack-tag">MIT License</span>
+    </div>
+    <div class="stack-card">
+      <div class="stack-icon">🌐</div>
+      <h3>GitHub Pages</h3>
+      <p>Static site hosting directly from the repository. Free, fast, and reliable. Supports custom domains. Content updated via pull requests.</p>
+      <span class="stack-tag highlight">Static HTML/CSS/JS</span>
+      <span class="stack-tag">Custom domain</span>
+      <span class="stack-tag">Auto-deploy on push</span>
+    </div>
+    <div class="stack-card">
+      <div class="stack-icon">📋</div>
+      <h3>Google Forms</h3>
+      <p>Submission intake via embedded or linked Google Form. Responses stored in Google Sheets for lightweight curation workflow at launch.</p>
+      <span class="stack-tag highlight">Submission intake</span>
+      <span class="stack-tag">Google Sheets backend</span>
+      <span class="stack-tag">No server needed</span>
+    </div>
+    <div class="stack-card">
+      <div class="stack-icon">📦</div>
+      <h3>Zenodo / OSF</h3>
+      <p>File hosting and DOI issuance for contributed research assets. Each submission gets a permanent, citable DOI. Linked from the LiverCache entry.</p>
+      <span class="stack-tag highlight">DOI issuance</span>
+      <span class="stack-tag">Permanent archival</span>
+      <span class="stack-tag">CC BY 4.0</span>
+    </div>
+    <div class="stack-card">
+      <div class="stack-icon">📂</div>
+      <h3>Entry Structure</h3>
+      <p>Each "cached" item is a Markdown file in the repository. Structured frontmatter enables automated listing and filtering on the Browse page.</p>
+      <span class="stack-tag highlight">Markdown + frontmatter</span>
+      <span class="stack-tag">title / authors / date</span>
+      <span class="stack-tag">reason-iced vocabulary</span>
+      <span class="stack-tag">sensitive-data flag</span>
+    </div>
+    <div class="stack-card">
+      <div class="stack-icon">⚖️</div>
+      <h3>Governance</h3>
+      <p>Clear open-source governance from Day 1. Contributor license agreements (DCO/CLA) ensure content can later be transferred to AASLD or EASL stewardship.</p>
+      <span class="stack-tag highlight">CC BY 4.0 (content)</span>
+      <span class="stack-tag">MIT (code)</span>
+      <span class="stack-tag">DCO / CLA</span>
+      <span class="stack-tag">AASLD pathway</span>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- Design System -->
+<section id="design" class="design-section">
+  <div class="section-label">04 · Design Language</div>
+  <h2 class="section-title">Visual Identity</h2>
+  <p class="section-desc">The aesthetic should feel like a scientific journal crossed with a modern open-source project — authoritative, warm, and accessible.</p>
+  <div class="design-grid">
+    <div class="design-card">
+      <div class="design-card-header">Color Palette</div>
+      <div class="design-card-body">
+        <div class="color-swatches">
+          <div class="swatch">
+            <div class="swatch-block" style="background:#1a1208;"></div>
+            <div class="swatch-name">Ink</div>
+            <div class="swatch-hex">#1a1208</div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-block" style="background:#c4401a;"></div>
+            <div class="swatch-name">Rust</div>
+            <div class="swatch-hex">#c4401a</div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-block" style="background:#e8883a;"></div>
+            <div class="swatch-name">Amber</div>
+            <div class="swatch-hex">#e8883a</div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-block" style="background:#f5f0e8; border:1px solid #333;"></div>
+            <div class="swatch-name">Parchment</div>
+            <div class="swatch-hex">#f5f0e8</div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-block" style="background:#4a6741;"></div>
+            <div class="swatch-name">Sage</div>
+            <div class="swatch-hex">#4a6741</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="design-card">
+      <div class="design-card-header">Typography</div>
+      <div class="design-card-body">
+        <div class="type-sample">
+          <div class="type-label">Display / Headers — DM Serif Display</div>
+          <div style="font-family:'DM Serif Display',serif; font-size:28px; color:white; line-height:1.1;">LiverCache<em style="color:#e8883a;font-style:italic;">.</em></div>
+        </div>
+        <div class="type-sample">
+          <div class="type-label">Body — DM Sans</div>
+          <div style="font-family:'DM Sans',sans-serif; font-size:14px; color:#b0a898; line-height:1.7;">Open, citable, and community-driven. Built for hepatology researchers who believe in sharing the full picture of science.</div>
+        </div>
+        <div class="type-sample">
+          <div class="type-label">Code / Labels — DM Mono</div>
+          <div style="font-family:'DM Mono',monospace; font-size:12px; color:#e8883a; letter-spacing:0.1em;">$ git commit -m "cache: nafld-trial-2024"</div>
+        </div>
+      </div>
+    </div>
+    <div class="design-card">
+      <div class="design-card-header">UI Tone & Principles</div>
+      <div class="design-card-body">
+        <div class="type-sample">
+          <div class="type-label">Voice</div>
+          <div style="font-size:13px; color:#b0a898; line-height:1.6;">Scientific but welcoming. No jargon gatekeeping. Think: a trusted colleague's lab notebook, not a corporate portal.</div>
+        </div>
+        <div class="type-sample">
+          <div class="type-label">Layout</div>
+          <div style="font-size:13px; color:#b0a898; line-height:1.6;">Generous whitespace. Clean information hierarchy. Cards for content, prose for explanation. No visual clutter.</div>
+        </div>
+        <div class="type-sample">
+          <div class="type-label">Interactions</div>
+          <div style="font-size:13px; color:#b0a898; line-height:1.6;">Subtle hover states. No loading spinners unless necessary. Confirmation states on form submission. Accessible contrast throughout.</div>
+        </div>
+      </div>
+    </div>
+    <div class="design-card">
+      <div class="design-card-header">Content Tags (Controlled Vocabulary)</div>
+      <div class="design-card-body">
+        <div class="type-label" style="margin-bottom:12px;">Content Type Tags</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;">
+          <span style="background:#2a2820;color:#e8883a;font-family:'DM Mono',monospace;font-size:11px;padding:4px 12px;border-radius:20px;">Article</span>
+          <span style="background:#2a2820;color:#e8883a;font-family:'DM Mono',monospace;font-size:11px;padding:4px 12px;border-radius:20px;">Dataset</span>
+          <span style="background:#2a2820;color:#e8883a;font-family:'DM Mono',monospace;font-size:11px;padding:4px 12px;border-radius:20px;">Protocol</span>
+          <span style="background:#2a2820;color:#e8883a;font-family:'DM Mono',monospace;font-size:11px;padding:4px 12px;border-radius:20px;">Poster</span>
+        </div>
+        <div class="type-label" style="margin-bottom:12px;">Reason Iced Vocabulary</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;">
+          <span style="background:#1a2818;color:#6dbf67;font-family:'DM Mono',monospace;font-size:10px;padding:3px 10px;border-radius:20px;">dead-end</span>
+          <span style="background:#1a2818;color:#6dbf67;font-family:'DM Mono',monospace;font-size:10px;padding:3px 10px;border-radius:20px;">technical-gap</span>
+          <span style="background:#1a2818;color:#6dbf67;font-family:'DM Mono',monospace;font-size:10px;padding:3px 10px;border-radius:20px;">null-result</span>
+          <span style="background:#1a2818;color:#6dbf67;font-family:'DM Mono',monospace;font-size:10px;padding:3px 10px;border-radius:20px;">translational-mismatch</span>
+          <span style="background:#1a2818;color:#6dbf67;font-family:'DM Mono',monospace;font-size:10px;padding:3px 10px;border-radius:20px;">funding-ended</span>
+          <span style="background:#1a2818;color:#6dbf67;font-family:'DM Mono',monospace;font-size:10px;padding:3px 10px;border-radius:20px;">incomplete</span>
+        </div>
+        <div class="type-label" style="margin-bottom:12px;">Discipline Tags</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          <span style="background:#1e1a28;color:#9dbf8a;font-family:'DM Mono',monospace;font-size:10px;padding:3px 10px;border-radius:20px;">NAFLD/NASH</span>
+          <span style="background:#1e1a28;color:#9dbf8a;font-family:'DM Mono',monospace;font-size:10px;padding:3px 10px;border-radius:20px;">Hepatitis</span>
+          <span style="background:#1e1a28;color:#9dbf8a;font-family:'DM Mono',monospace;font-size:10px;padding:3px 10px;border-radius:20px;">Cirrhosis</span>
+          <span style="background:#1e1a28;color:#9dbf8a;font-family:'DM Mono',monospace;font-size:10px;padding:3px 10px;border-radius:20px;">Cholestatic</span>
+          <span style="background:#1e1a28;color:#9dbf8a;font-family:'DM Mono',monospace;font-size:10px;padding:3px 10px;border-radius:20px;">Other</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- Roadmap -->
+<section id="roadmap" class="roadmap-section">
+  <div class="section-label">05 · Launch Roadmap</div>
+  <h2 class="section-title">From Idea to Archive</h2>
+  <p class="section-desc">A phased approach that gets to a working archive fast, then scales with community adoption.</p>
+  <div class="roadmap-timeline">
+    <div class="roadmap-item active">
+      <div class="roadmap-phase">Week 1 · Now</div>
+      <h3>Foundation</h3>
+      <p>Set up GitHub organization, primary repository, LICENSE files, CONTRIBUTING.md, CODE_OF_CONDUCT.md, and GOVERNANCE.md. Stand up basic GitHub Pages site with placeholder content.</p>
+      <div class="roadmap-tags">
+        <span class="r-tag">GitHub Org</span>
+        <span class="r-tag">Governance Docs</span>
+        <span class="r-tag">Static Site</span>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-phase">Month 1</div>
+      <h3>Soft Launch</h3>
+      <p>Full 3-page site live. Submission form goes live via Google Forms. Announce via hepatology listservs, Twitter/X, LinkedIn, and AASLD network. Accept first batch of submissions.</p>
+      <div class="roadmap-tags">
+        <span class="r-tag">3-Page Site</span>
+        <span class="r-tag">Google Forms</span>
+        <span class="r-tag">Social Launch</span>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-phase">Month 3–6</div>
+      <h3>First Cohort & DOIs</h3>
+      <p>Curate first batch of reviewed entries. Issue first DOIs via Zenodo. Recruit 2–3 volunteer curators from the hepatology community. Begin tracking submission and visitor metrics.</p>
+      <div class="roadmap-tags">
+        <span class="r-tag">First DOIs</span>
+        <span class="r-tag">Volunteer Curators</span>
+        <span class="r-tag">Zenodo Integration</span>
+      </div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-phase">Year 1</div>
+      <h3>Evaluate & Scale</h3>
+      <p>Assess impact (submissions, citations, community growth). Apply for small grants or society partnerships (AASLD, EASL). Explore GitHub Sponsors for sustainability. Consider dedicated domain and enhanced search.</p>
+      <div class="roadmap-tags">
+        <span class="r-tag">Impact Report</span>
+        <span class="r-tag">Grant Applications</span>
+        <span class="r-tag">Society Partnerships</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- Team -->
+<section id="team">
+  <div class="section-label">06 · Team</div>
+  <h2 class="section-title">The Founders</h2>
+  <p class="section-desc">Two people who believe the scientific record should include everything — not just what got published.</p>
+  <div class="team-grid">
+    <div class="team-card">
+      <div class="team-initials">SA</div>
+      <h3>Somaya Albhaisi</h3>
+      <div class="role">GI / Liver Fellow · Project Lead & Founder</div>
+      <p>Clinical perspective, hepatology domain expertise, and the original vision for LiverCache. Drives project direction, community outreach, and scientific curation standards.</p>
+    </div>
+    <div class="team-card">
+      <div class="team-initials">SE</div>
+      <h3>Scottie Enriquez</h3>
+      <div class="role">Computer Science Lead · Co-Founder</div>
+      <p>Technical architecture, GitHub organization setup, site development, and engineering the submission workflow. This spec is written for you — build what you see here.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <span class="footer-logo">LiverCache<span style="color:#c4401a;">.</span></span>
+  <span>Where shelved liver science gets cached. · CC BY 4.0</span>
+  <div class="footer-links">
+    <a href="#why">Why</a>
+    <a href="#pages">Pages</a>
+    <a href="#stack">Stack</a>
+    <a href="#roadmap">Roadmap</a>
+  </div>
+</footer>
+
+<script>
+function showPage(id, btn) {
+  document.querySelectorAll('.page-spec').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.page-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById('spec-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
+</body>
+</html>
